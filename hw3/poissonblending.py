@@ -57,12 +57,36 @@ def blend(img_target, img_source, img_mask, offset=(0, 0)):
     
     # create poisson matrix for b
     P = pyamg.gallery.poisson(img_mask.shape)
+    
+    if img_target.ndim == 3:
+        # for each layer (ex. RGB)
+        for num_layer in range(img_target.shape[2]):
+            # get subimages
+            t = img_target[region_target[0]:region_target[2],region_target[1]:region_target[3],num_layer]
+            s = img_source[region_source[0]:region_source[2], region_source[1]:region_source[3],num_layer]
+            t = t.flatten()
+            s = s.flatten()
 
-    # for each layer (ex. RGB)
-    for num_layer in range(img_target.shape[2]):
-        # get subimages
-        t = img_target[region_target[0]:region_target[2],region_target[1]:region_target[3],num_layer]
-        s = img_source[region_source[0]:region_source[2], region_source[1]:region_source[3],num_layer]
+            # create b
+            b = P * s
+            for y in range(region_size[0]):
+                for x in range(region_size[1]):
+                    if not img_mask[y,x]:
+                        index = x+y*region_size[1]
+                        b[index] = t[index]
+
+            # solve Ax = b
+            x = pyamg.solve(A,b,verb=False,tol=1e-10)
+
+            # assign x to target image
+            x = np.reshape(x, region_size)
+            x[x>255] = 255
+            x[x<0] = 0
+            x = np.array(x, img_target.dtype)
+            img_target[region_target[0]:region_target[2],region_target[1]:region_target[3],num_layer] = x
+    else:     
+        t = img_target[region_target[0]:region_target[2],region_target[1]:region_target[3]]
+        s = img_source[region_source[0]:region_source[2], region_source[1]:region_source[3]]
         t = t.flatten()
         s = s.flatten()
 
@@ -82,23 +106,9 @@ def blend(img_target, img_source, img_mask, offset=(0, 0)):
         x[x>255] = 255
         x[x<0] = 0
         x = np.array(x, img_target.dtype)
-        img_target[region_target[0]:region_target[2],region_target[1]:region_target[3],num_layer] = x
+        img_target[region_target[0]:region_target[2],region_target[1]:region_target[3]] = x
 
     return img_target
-
-
-def DoBlend():
-    img_source = np.asarray(PIL.Image.open('./data/penguin.jpg'))
-    img_source.flags.writeable = True
-    rectangle = np.zeros(img_source.shape[0:2], dtype = "uint8")
-    #cv2.rectangle(rectangle, (136, 190), (136 + 157, 190 + 245), 255, -1)
-    cv2.rectangle(rectangle, (136, 190), (136 + 157, 190 + 245), 255, -1)
-    masked = cv2.bitwise_and(img_source, img_source, mask=rectangle)
-    img_target = np.asarray(PIL.Image.open('./data/hiking.jpg'))
-    img_target.flags.writeable = True
-    img_ret = blend(img_target, img_source, masked, offset=(1600,900))
-    img_ret = PIL.Image.fromarray(np.uint8(img_ret))
-    img_ret.save('./data/test_ret.png')
 
 def get_grads(im):
     [H,W] = im.shape
@@ -108,17 +118,59 @@ def get_grads(im):
     Dy[j,k] = im[j+1,k] - im[j,k]
     return Dx,Dy
 
+def DoBlend1():
+    img_source = np.asarray(PIL.Image.open('./data/penguin.jpg'))
+    img_source.flags.writeable = True
+    rectangle = np.zeros(img_source.shape[0:2], dtype = "uint8")
+    cv2.rectangle(rectangle, (136, 190), (136 + 157, 190 + 245), 255, -1)
+    masked = cv2.bitwise_and(img_source, img_source, mask=rectangle)
+    #cv2.imwrite('./data/masked.bmp', masked)
+    img_target = np.asarray(PIL.Image.open('./data/hiking.jpg'))
+    img_target.flags.writeable = True
+    img_ret = blend(img_target, img_source, masked, offset=(1600,900))
+    img_ret = PIL.Image.fromarray(np.uint8(img_ret))
+    img_ret.save('./data/penguin_result1.png')
+
+def DoBlend2():
+    img_source = np.asarray(PIL.Image.open('./data/penguin-chick.jpeg'))
+    img_source.flags.writeable = True
+    rectangle = np.zeros(img_source.shape[0:2], dtype = "uint8")
+    cv2.rectangle(rectangle, (65, 28), (350, 450), 255, -1)
+    masked = cv2.bitwise_and(img_source, img_source, mask=rectangle)
+    #cv2.imwrite('./data/masked.bmp', masked)
+    img_target = np.asarray(PIL.Image.open('./data/hiking.jpg'))
+    img_target.flags.writeable = True
+    img_ret = blend(img_target, img_source, masked, offset=(1216,922))
+    img_ret = PIL.Image.fromarray(np.uint8(img_ret))
+    img_ret.save('./data/penguin_result2.png')
+
+def MyExample():
+    img_source = np.asarray(PIL.Image.open('./data/fish.jpg'))
+    img_source.flags.writeable = True
+    rectangle = np.zeros(img_source.shape[0:2], dtype = "uint8")
+    cv2.rectangle(rectangle, (0, 0), img_source.shape[0:2], 255, -1)
+    masked = cv2.bitwise_and(img_source, img_source, mask=rectangle)
+    #cv2.imwrite('./data/masked.bmp', masked)
+    img_target = np.asarray(PIL.Image.open('./data/water.jpg'))
+    img_target.flags.writeable = True
+    img_ret = blend(img_target, img_source, masked, offset=(430,520))
+    img_ret = PIL.Image.fromarray(np.uint8(img_ret))
+    img_ret.save('./data/my_result.png')
+
 def DoToy():
-    im_toy = cv2.imread('./data/toy_problem.png', cv2.IMREAD_UNCHANGED)
-    print(im_toy.shape, im_toy.dtype)
-    [gx,gy] = get_grads(im_toy)
-    print(gx, gy)
-    valueAdd = 88
-    gx += valueAdd
-    gy += valueAdd
-    gradxy = cv2.addWeighted(gx, 0.5, gy, 0.5, 0)
-    cv2.imwrite('./data/toy_result.png', gradxy)
+    im_toy = np.asarray(PIL.Image.open('./data/toy_problem.png'))
+    im_toy.flags.writeable = True
+    rectangle = np.zeros(im_toy.shape[0:2], dtype = "uint8")
+    cv2.rectangle(rectangle, (1, 1), (im_toy.shape[0] -2, im_toy.shape[1] - 2), 255, -1)
+    masked = cv2.bitwise_and(im_toy, im_toy, mask=rectangle)
+    img_target = np.asarray(PIL.Image.open('./data/toy_problem.png'))
+    img_target.flags.writeable = True
+    img_ret = blend(im_toy, im_toy, masked, offset=(1,1))
+    img_ret = PIL.Image.fromarray(np.uint8(img_ret))
+    img_ret.save('./data/toy_result.png')
 
 if __name__ == '__main__':
     DoToy()
-    #DoBlend()
+    DoBlend1()
+    DoBlend2()
+    MyExample()

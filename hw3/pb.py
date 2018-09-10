@@ -91,7 +91,7 @@ def blit_images(im_top,im_back,scale_grad=1.0,mode='max'):
     im_res = np.zeros_like(im_top)
 
     # frac of gradients which come from source:
-    for ch in xrange(im_top.shape[2]):
+    for ch in range(im_top.shape[2]):
         ims = im_top[:,:,ch]
         imd = im_back[:,:,ch]
 
@@ -157,45 +157,31 @@ def contiguous_regions(mask):
 
 
 if __name__=='__main__':
-    """
-    example usage:
-    """
     import seaborn as sns
 
-    im_src = cv2.imread('../f01006.jpg').astype('float32')
-
-    im_dst = cv2.imread('../f01006-5.jpg').astype('float32')
-
-    mu = np.mean(np.reshape(im_src,[im_src.shape[0]*im_src.shape[1],3]),axis=0)
-    # print mu
-    sz = (1920,1080)
-    im_src = cv2.resize(im_src,sz)
-    im_dst = cv2.resize(im_dst,sz)
+    im_src = cv2.imread('./data/penguin-chick.jpeg').astype('float32')
+    im_dst = cv2.imread('./data/hiking.jpg').astype('float32')
 
     im0 = im_dst[:,:,0] > 100
     im_dst[im0,:] = im_src[im0,:]
     im_dst[~im0,:] = 50
     im_dst = cv2.GaussianBlur(im_dst,(5,5),5)
 
-    im_alpha = 0.8*im_dst + 0.2*im_src
-
-    # plt.imshow(im_dst)
-    # plt.show()
 
     im_res = blit_images(im_src,im_dst)
 
     import scipy
-    scipy.misc.imsave('orig.png',im_src[:,:,::-1].astype('uint8'))
-    scipy.misc.imsave('alpha.png',im_alpha[:,:,::-1].astype('uint8'))
-    scipy.misc.imsave('poisson.png',im_res[:,:,::-1].astype('uint8'))
+    scipy.misc.imsave('./data/poisson.png',im_res[:,:,::-1].astype('uint8'))
 
-    im_actual_L = cv2.cvtColor(im_src.astype('uint8'),cv2.cv.CV_BGR2Lab)[:,:,0]
-    im_alpha_L = cv2.cvtColor(im_alpha.astype('uint8'),cv2.cv.CV_BGR2Lab)[:,:,0]
-    im_poisson_L = cv2.cvtColor(im_res.astype('uint8'),cv2.cv.CV_BGR2Lab)[:,:,0]
+    im_actual_L = cv2.cvtColor(im_src.astype('uint8'),cv2.COLOR_BGR2Lab)[:,:,0]
+    im_alpha_L = cv2.cvtColor(im_alpha.astype('uint8'),cv2.COLOR_BGR2Lab)[:,:,0]
+    im_poisson_L = cv2.cvtColor(im_res.astype('uint8'),cv2.COLOR_BGR2Lab)[:,:,0]
+
+    return
 
     # plt.imshow(im_alpha_L)
     # plt.show()
-    for i in xrange(500,im_alpha_L.shape[1],5):
+    for i in range(500,im_alpha_L.shape[1],5):
         l_actual = im_actual_L[i,:]#-im_actual_L[i,:-1]
         l_alpha = im_alpha_L[i,:]#-im_alpha_L[i,:-1]
         l_poisson = im_poisson_L[i,:]#-im_poisson_L[i,:-1]
