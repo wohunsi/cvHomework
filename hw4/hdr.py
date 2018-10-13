@@ -8,6 +8,7 @@ import scipy.sparse.linalg
 import matplotlib.pyplot as plt
 import tonemap
 from itertools import product
+import rawpy
 
 def tls(A, b):
     ATA = np.dot(A.T, A)
@@ -114,7 +115,7 @@ def stack_low_res(stack):
 
     return stack_out
 
-def devebec(images, expotimes, weight_type='all', lin_type='gamma2.2'):
+def HdrImaging(images, expotimes, weight_type='all', lin_type='gamma2.2'):
     n_img = len(expotimes)
     if n_img == 0:
         raise Exception('Input images and exposure times are invalid')
@@ -125,7 +126,6 @@ def devebec(images, expotimes, weight_type='all', lin_type='gamma2.2'):
         stack[:,:,:,i] = images[i]
 
     lin_fun = []
-    print('lin_type: %s' % lin_type)
     if lin_type == 'tabledDeb97':
         weight = weight_function(np.array([x / 255.0 for x in range(256)]), weight_type)
         stack2 = stack_low_res(stack)
@@ -136,8 +136,20 @@ def devebec(images, expotimes, weight_type='all', lin_type='gamma2.2'):
 
     return combine_ldr(stack, np.exp(expotimes) + 1.0, lin_type, lin_fun, weight_type)
 
-def main():
-    hdr = None
+def HdrShow(imgs, expotimes):
+    hdr = HdrImaging(imgs, expotimes)
+
+    tm = tonemap.durand(hdr)
+    tm = tonemap.gamma(tm, 1.0 / 2.2)
+
+    return tm
+    fig, ax = plt.subplots()
+    ax.imshow(tm)
+    ax.set_title('Generated HDR')
+    ax.axis('off')
+    plt.show()
+
+def ProcessJpg():
     imgNum = 16
     imgs = [ None ] * imgNum
     expotimes = [ 0.0 ] * imgNum
@@ -147,16 +159,31 @@ def main():
         imgs[i] = sp.misc.imresize(imTmp, 0.25)
         expotimes[i] = 1.0 / 2048 * pow(2, i)
 
-    hdr = devebec(imgs, expotimes)
+    hdrimg = HdrShow(imgs, expotimes)
+    sp.misc.imsave("./data/resultJpgHdr.jpg", hdrimg)
+    return hdrimg
 
-    tm = tonemap.durand(hdr)
-    tm = tonemap.gamma(tm, 1.0 / 2.2)
+def ProcessNef():
+    imgNum = 16
+    imgs = [ None ] * imgNum
+    expotimes = [ 0.0 ] * imgNum
+    for i in range(imgNum):
+        imgPath = "./data/exposure" + str(i+1) + ".nef"         
+        raw = rawpy.imread(imgPath)
+        imTmp = raw.postprocess()
+        imgs[i] = sp.misc.imresize(imTmp, 0.25)
+        expotimes[i] = 1.0 / 2048 * pow(2, i)
+
+    hdrimg = HdrShow(imgs, expotimes)
+    sp.misc.imsave("./data/resultNefHdr.jpg", hdrimg)
+    return hdrimg
+
+if __name__ == '__main__':
+    ProcessNef()
+    hdrimg = ProcessJpg()
 
     fig, ax = plt.subplots()
-    ax.imshow(tm)
+    ax.imshow(hdrimg)
     ax.set_title('Generated HDR')
     ax.axis('off')
     plt.show()
-
-if __name__ == '__main__':
-    main()
