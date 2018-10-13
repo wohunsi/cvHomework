@@ -170,7 +170,7 @@ def ProcessNef():
     for i in range(imgNum):
         imgPath = "./data/exposure" + str(i+1) + ".nef"         
         raw = rawpy.imread(imgPath)
-        imTmp = raw.postprocess()
+        imTmp = raw.postprocess(gamma=None, no_auto_bright=True)
         imgs[i] = sp.misc.imresize(imTmp, 0.25)
         expotimes[i] = 1.0 / 2048 * pow(2, i)
 
@@ -179,8 +179,8 @@ def ProcessNef():
     return hdrimg
 
 if __name__ == '__main__':
-    ProcessNef()
     hdrimg = ProcessJpg()
+    hdrimg = ProcessNef()    
 
     fig, ax = plt.subplots()
     ax.imshow(hdrimg)
